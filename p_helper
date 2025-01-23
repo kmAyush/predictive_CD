@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+
+import sys
+import os 
+import fuzz
+
+def predict(target):
+    
+
+    # read from STORE_FILE
+    fuzz_ratio_path = dict()
+    # save top 5 max value fuzz_ratio with path
+    if debug:
+        print("\x1b[1;33mTarget:\x1b[0m", target, file=sys.stderr)
+        print("\x1b[1;36mAvailable Paths".ljust(40),'\t',"Confidence %",'\t',"Counts\x1b[0m", file=sys.stderr)
+    with open(STORE_FILE, "r") as f:
+        for line in f:
+            path, count = line.strip().split()
+            # get top 5 max value fuzz_ratio with path    
+            fuzz_ratio = fuzz.ratio(target, path)
+            if len(fuzz_ratio_path) < 5:
+                fuzz_ratio_path[path] = fuzz_ratio + int(count)*2
+            else:
+                min_fuzz_ratio = min(fuzz_ratio_path.values())
+                if fuzz_ratio > min_fuzz_ratio:
+                    min_fuzz_ratio_path = min(fuzz_ratio_path, key=fuzz_ratio_path.get)
+                    del fuzz_ratio_path[min_fuzz_ratio_path]
+                    fuzz_ratio_path[path] = fuzz_ratio
+            if debug:
+                print(path.ljust(40),'\t',fuzz.ratio(target, path),'\t',count, file=sys.stderr)
+
+    
+    # Print top count path in top 5 max value fuzz_ratio
+    max_count_path = max(fuzz_ratio_path, key=fuzz_ratio_path.get)
+    return max_count_path
+
+STORE_FILE = "/home/dsladmin/.pstore"
+
+target = sys.argv[1]
+debug = "--debug" in sys.argv
+ignore = False
+if target == '.' or target == '..':
+    ignore = False
+
+abs_target = os.path.abspath(target)
+
+if not os.path.isdir(abs_target):
+    #print(f"\x1b[1;35mNot found using predictive CD\x1b[0m ", file=sys.stderr)
+    ignore = True
+abs_target += '/'
+freq = dict()
+# pickle load from STORE_FILE
+with open(STORE_FILE, "r") as f:
+    for line in f:
+        path, count = line.strip().split()
+        freq[path] = int(count)
+
+if not ignore:
+    if freq.get(abs_target) is None:
+        freq[abs_target] = 1
+    else:
+        freq[abs_target] += 1
+
+# TODO: ML jugad
+if ignore:
+    predicted = predict(target)
+else:
+    predicted = abs_target
+
+# print to stderr
+if debug:
+    print("\x1b[1;32mPredicted:\x1b[0m ", predicted,'\n', file=sys.stderr)
+print(predicted)
+
+# pickle store to STORE_FILE
+with open(STORE_FILE, "w") as f:
+    for path in freq:
+        f.write(f"{path} {freq[path]}\n")

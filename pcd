@@ -1,0 +1,5 @@
+pcd() {
+    # store stdout of command to variabe a 
+    a=$(p_helper $@)
+    cd $a
+}
